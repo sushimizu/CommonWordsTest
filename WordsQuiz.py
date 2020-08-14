@@ -7,6 +7,7 @@
 import random as r
 import string
 import array as arr
+import pandas as pd
 
 """Gameplay, 2 modes
 mode 1: Quickplay / practice?. Choose your language then get started guessing! When you can get through all 
@@ -28,8 +29,13 @@ wordsToWin = 10 #number correct to win
 chances = 20 #tries until turn over 
 wordslist = []
 usedCorr = []
+wordsListJ = []
+usedCorrJ = []
 allPlayers = [] #save to csv ?
-"""Load FrenchWords file"""
+selectedLanguage = None
+playerData = pd.read_csv("players.csv")
+
+"""Load FrenchWordset file"""
 def loadFrench():
     txt = open("FrenchWordset.csv", "r")
     words = []
@@ -45,13 +51,23 @@ def loadFrench():
         count+=1
     #print(wordslist)
 
-    
-class Player:
-    def __init__(self, pname, french = False):
-        self.name: pname
-        self.fr: french
-        
-    known: ''
+"""Load JapaneseWordset file"""
+def loadJapanese():
+    txt = open("JapaneseWordset.csv", "r")
+    words = []
+    for i in txt:
+        words.append(i.rstrip('\n'))
+    #print(words)
+    """Create the array"""
+
+    count = 0
+    for i in words:
+        a,b = i.split(",")
+        wordslist.append([count,a,b])
+        count+=1
+    #print(wordslist)
+
+
 
     
 
@@ -84,6 +100,7 @@ def sort(names, lscores):
         
 #Reads file of current users and prints scores in order of how many each player got correct
 def displayScores():
+    #No longer in use 
     names = []
     lscores = []
     f = open('players.txt', 'r')
@@ -99,26 +116,71 @@ def displayScores():
     f.close()
 
 
+def displayScoresFr(playerData):
+    #players = playerData.sort_values(["FrenchCount"], ascending=False)
+    playersfr = playerData.sort_values(["FrenchCount"], ascending=False)
+    playersfr = playersfr[["Name","FrenchCount"]]
+    playersfr = playersfr.reset_index(drop=True)
+    print("\n High Scores: \n")
+    print("Player","          " ,"Score")
+    if playersfr["Name"].size < 5:
+        for i in range (0,playersfr["Name"].size):
+         print(playersfr["Name"][i], "          ", playersfr["FrenchCount"][i])
+    else:
+        for i in range(0,4):
+            print(playersfr["Name"][i], "          ", playersfr["FrenchCount"][i])
+     
+def displayScoresJp(playerData):
+    #players = playerData.sort_values(["FrenchCount"], ascending=False)
+    playersjp = playerData.sort_values(["JapaneseCount"], ascending=False)
+    playersjp = playersjp[["Name","JapaneseCount"]]
+    playersjp = playersjp.reset_index(drop=True)
+    print("\n High Scores: \n")
+    print("Player","          " ,"Score")
+    if playersjp["Name"].size < 5:
+        for i in range (0,playersjp["Name"].size):
+         print(playersjp["Name"][i], "          ", playersjp["JapaneseCount"][i])
+    else:
+        for i in range (0,4):
+         print(playersjp["Name"][i], "          ", playersjp["JapaneseCount"][i])
 
 
+""" Add players to database edit if new languages added"""
+def addPlayerFr(playerData,name,frArr, frCount):
+    player = pd.DataFrame([[name,frArr,frCount,None,None]],columns=["Name","FrenchWords","FrenchCount","JapaneseWords","JapaneseCount"])
+    newPlayer = pd.concat([playerData,player],ignore_index=True)
+    return newPlayer
+    
+def addPlayerJp(playerData,name,JpArr, JpCount):
+    player = pd.DataFrame([[name,None,None,JpArr,JpCount]],columns=["Name","FrenchWords","FrenchCount","JapaneseWords","JapaneseCount"])
+    newPlayer = pd.concat([playerData,player],ignore_index=True)
+    return newPlayer
+    
+    
 def play():
-    displayScores()
-    player = input("What shall I call you? \n")
-    if player in allPlayers:
-        print("Welcome back %s! \n"%player)
+    #displayScoresFr()
+    playerName = input("What shall I call you? \n")
+    if playerName in allPlayers:
+        print("Welcome back %s! \n"%playerName)
+        #load from players.csv
         ##Need to load data into usedCorr for words already used correctly 
     else:
         #a new player
-        print("Hello %s! \n"%player)
+        print("Hello %s! \n"%playerName)
         
          
         
     while 1:
-        language = input("Pick a language! (French) \n")
+        language = input("Pick a language! (French, Japanese) \n")
         if language == "French":
             loadFrench()
-            user = Player(player, True)
-            allPlayers.append(user)
+            selectedLangauge = "French"
+            #user = Player(player, True)
+            #allPlayers.append(user)
+            break
+        elif language == "Japanese":
+            loadJapanese()
+            selectedLanguage = "Japanese"
             break
         else:
             print("Sorry, that isn't an option. Please Pick a supported language")
@@ -137,7 +199,7 @@ def play():
                 print("Congratulations! You have won, good job. \n")
                 sCorr = toString(usedCorr)
                 f = open("players.txt","a")
-                f.write('\n' + player+ ',' + sCorr)
+                f.write('\n' + playerName+ ',' + sCorr)
                 f.close()
                 displayScores()
                 break
@@ -146,11 +208,16 @@ def play():
             sCorr = toString(usedCorr)
             print(sCorr + '.')
             f = open("players.txt","a")
-            f.write('\n' + player + ',' +  sCorr)
+            f.write('\n' + playerName + ',' +  sCorr)
             f.close()
-            displayScores()
+            if selectedLangauge == "French":
+                newPlayerData = addPlayerFr(playerData,playerName, usedCorr, len(usedCorr))
+                displayScoresFr(newPlayerData)
+            elif selectedLangauge == "Japanese":
+                newPlayerData = addPlayerJp(playerData,playerName, usedCorr, len(usedCorr))
+                displayScoresJp(newPlayerData)
             print("See you again soon! \n")
-            
+            newPlayerData.to_csv("players.csv",index=False)
             break
         else:
             print("Sorry, the word means %s \n"%row[2])
@@ -196,13 +263,8 @@ while 0:
     
 
 
-# In[ ]:
 
 
-
-
-
-# In[ ]:
 
 
 
